@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^dotnet add src/Persistence/Persistence\\.csproj package Microsoft\\.AspNetCore\\.Identity\\.EntityFrameworkCore --version 9\\.0\\.0$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
