@@ -20,6 +20,7 @@ A complete, production-ready ASP.NET Core 9 Web API project implemented using Cl
 - Background Jobs (Worker Service)
 - Email and SMS Services (interfaces)
 - Soft Delete and Auditing
+- Ecommerce module with seller storefronts, dynamic product forms, promo codes, discounts, guest checkout, and product search
 
 ## Prerequisites
 
@@ -42,9 +43,13 @@ Update `appsettings.json` with:
 
 ## API Endpoints
 
-- POST /api/v1/auth/login
-- POST /api/v1/auth/register
-- etc.
+- POST /api/auth/register
+- POST /api/auth/login
+- POST /api/auth/refresh
+- POST /api/ecommerce/seller/profile (Seller)
+- POST /api/ecommerce/products (Seller)
+- GET /api/ecommerce/products/search
+- POST /api/ecommerce/checkout
 
 ## Testing
 

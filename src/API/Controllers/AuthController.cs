@@ -41,13 +41,11 @@ public class AuthController : ControllerBase
             return BadRequest(result.Errors);
         }
 
-        if (request.Roles.Count > 0)
+        var rolesToAssign = request.Roles.Count > 0 ? request.Roles : ["Guest"];
+        var roleResult = await _userManager.AddToRolesAsync(user, rolesToAssign);
+        if (!roleResult.Succeeded)
         {
-            var roleResult = await _userManager.AddToRolesAsync(user, request.Roles);
-            if (!roleResult.Succeeded)
-            {
-                return BadRequest(roleResult.Errors);
-            }
+            return BadRequest(roleResult.Errors);
         }
 
         return Ok(new { Message = "User registered successfully" });
