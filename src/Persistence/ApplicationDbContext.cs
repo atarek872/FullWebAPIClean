@@ -1,5 +1,8 @@
 using Application.Common.Interfaces;
+using Application.Common.Interfaces.MultiTenancy;
 using Domain.Entities;
+using Domain.Entities.Multitenancy;
+using Domain.MultiTenancy;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,7 +10,14 @@ namespace Persistence;
 
 public class ApplicationDbContext : IdentityDbContext<User, Role, Guid>, IApplicationDbContext
 {
-    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
+    private readonly ITenantContext _tenantContext;
+
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, ITenantContext tenantContext) : base(options)
+    {
+        _tenantContext = tenantContext;
+    }
+
+    public string TenantSchema => _tenantContext.IsResolved ? _tenantContext.TenantSchema : "public";
 
     public DbSet<SellerProfile> SellerProfiles => Set<SellerProfile>();
     public DbSet<Product> Products => Set<Product>();
@@ -17,106 +27,54 @@ public class ApplicationDbContext : IdentityDbContext<User, Role, Guid>, IApplic
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<OrderItemCustomFieldValue> OrderItemCustomFieldValues => Set<OrderItemCustomFieldValue>();
+    public DbSet<Tenant> Tenants => Set<Tenant>();
+    public DbSet<Feature> Features => Set<Feature>();
+    public DbSet<TenantFeature> TenantFeatures => Set<TenantFeature>();
+    public DbSet<Plan> Plans => Set<Plan>();
+    public DbSet<TenantSubscription> TenantSubscriptions => Set<TenantSubscription>();
+    public DbSet<UsageRecord> UsageRecords => Set<UsageRecord>();
+    public DbSet<UserTenantMembership> UserTenantMemberships => Set<UserTenantMembership>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.HasDefaultSchema(TenantSchema);
 
         modelBuilder.Entity<User>().HasQueryFilter(u => !u.IsDeleted);
         modelBuilder.Entity<Role>().HasQueryFilter(r => !r.IsDeleted);
+        modelBuilder.Entity<Tenant>().HasQueryFilter(t => !t.IsDeleted);
 
-        modelBuilder.Entity<SellerProfile>()
-            .HasIndex(x => x.UserId)
-            .IsUnique();
+        ConfigureTenantEntities(modelBuilder);
+        ConfigureEcommerceEntities(modelBuilder);
+    }
 
-        modelBuilder.Entity<SellerProfile>()
-            .HasOne(x => x.User)
-            .WithMany()
-            .HasForeignKey(x => x.UserId)
-            .OnDelete(DeleteBehavior.Restrict);
+    private void ConfigureTenantEntities(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Tenant>().ToTable("Tenants", "public");
+        modelBuilder.Entity<Plan>().ToTable("Plans", "public");
+        modelBuilder.Entity<Feature>().ToTable("Features", "public");
+        modelBuilder.Entity<TenantFeature>().ToTable("TenantFeatures", "public");
+        modelBuilder.Entity<TenantSubscription>().ToTable("TenantSubscriptions", "public");
+        modelBuilder.Entity<UsageRecord>().ToTable("UsageRecords", "public");
+        modelBuilder.Entity<UserTenantMembership>().ToTable("UserTenantMemberships", "public");
 
-        modelBuilder.Entity<Product>()
-            .Property(x => x.BasePrice)
-            .HasPrecision(18, 2);
+        modelBuilder.Entity<Tenant>().HasIndex(x => x.Slug).IsUnique();
+        modelBuilder.Entity<Tenant>().HasIndex(x => x.Subdomain).IsUnique();
+        modelBuilder.Entity<Feature>().HasIndex(x => x.Code).IsUnique();
 
-        modelBuilder.Entity<Product>()
-            .Property(x => x.DiscountPercentage)
-            .HasPrecision(5, 2);
+        modelBuilder.Entity<TenantFeature>().HasIndex(x => new { x.TenantId, x.FeatureId }).IsUnique();
+        modelBuilder.Entity<UserTenantMembership>().HasIndex(x => new { x.UserId, x.TenantId }).IsUnique();
+    }
 
-        modelBuilder.Entity<Product>()
-            .HasOne(x => x.SellerProfile)
-            .WithMany(x => x.Products)
-            .HasForeignKey(x => x.SellerProfileId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<ProductImage>()
-            .HasOne(x => x.Product)
-            .WithMany(x => x.Images)
-            .HasForeignKey(x => x.ProductId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<ProductCustomField>()
-            .HasOne(x => x.Product)
-            .WithMany(x => x.CustomFields)
-            .HasForeignKey(x => x.ProductId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<PromoCode>()
-            .Property(x => x.DiscountPercentage)
-            .HasPrecision(5, 2);
-
-        modelBuilder.Entity<PromoCode>()
-            .HasIndex(x => new { x.ProductId, x.Code })
-            .IsUnique();
-
-        modelBuilder.Entity<PromoCode>()
-            .HasOne(x => x.Product)
-            .WithMany(x => x.PromoCodes)
-            .HasForeignKey(x => x.ProductId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<Order>()
-            .Property(x => x.Subtotal)
-            .HasPrecision(18, 2);
-
-        modelBuilder.Entity<Order>()
-            .Property(x => x.DiscountAmount)
-            .HasPrecision(18, 2);
-
-        modelBuilder.Entity<Order>()
-            .Property(x => x.Total)
-            .HasPrecision(18, 2);
-
-        modelBuilder.Entity<Order>()
-            .HasOne(x => x.BuyerUser)
-            .WithMany()
-            .HasForeignKey(x => x.BuyerUserId)
-            .OnDelete(DeleteBehavior.SetNull);
-
-        modelBuilder.Entity<OrderItem>()
-            .Property(x => x.UnitPrice)
-            .HasPrecision(18, 2);
-
-        modelBuilder.Entity<OrderItem>()
-            .Property(x => x.DiscountedUnitPrice)
-            .HasPrecision(18, 2);
-
-        modelBuilder.Entity<OrderItem>()
-            .HasOne(x => x.Order)
-            .WithMany(x => x.Items)
-            .HasForeignKey(x => x.OrderId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<OrderItem>()
-            .HasOne(x => x.Product)
-            .WithMany()
-            .HasForeignKey(x => x.ProductId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<OrderItemCustomFieldValue>()
-            .HasOne(x => x.OrderItem)
-            .WithMany(x => x.CustomFieldValues)
-            .HasForeignKey(x => x.OrderItemId)
-            .OnDelete(DeleteBehavior.Cascade);
+    private void ConfigureEcommerceEntities(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<SellerProfile>().HasQueryFilter(x => !x.IsDeleted && x.TenantId == _tenantContext.TenantId);
+        modelBuilder.Entity<Product>().HasQueryFilter(x => !x.IsDeleted && x.TenantId == _tenantContext.TenantId);
+        modelBuilder.Entity<ProductImage>().HasQueryFilter(x => !x.IsDeleted && x.TenantId == _tenantContext.TenantId);
+        modelBuilder.Entity<ProductCustomField>().HasQueryFilter(x => !x.IsDeleted && x.TenantId == _tenantContext.TenantId);
+        modelBuilder.Entity<PromoCode>().HasQueryFilter(x => !x.IsDeleted && x.TenantId == _tenantContext.TenantId);
+        modelBuilder.Entity<Order>().HasQueryFilter(x => !x.IsDeleted && x.TenantId == _tenantContext.TenantId);
+        modelBuilder.Entity<OrderItem>().HasQueryFilter(x => !x.IsDeleted && x.TenantId == _tenantContext.TenantId);
+        modelBuilder.Entity<OrderItemCustomFieldValue>().HasQueryFilter(x => !x.IsDeleted && x.TenantId == _tenantContext.TenantId);
     }
 }

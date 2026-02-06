@@ -1,13 +1,18 @@
 using Application.Common.Interfaces;
+using Application.Common.Interfaces.MultiTenancy;
 using Domain.Authorization;
 using Domain.Entities;
+using Infrastructure.Billing;
+using Infrastructure.MultiTenancy;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Persistence;
+using System.Security.Claims;
 using System.Text;
 
 namespace Infrastructure;
@@ -16,6 +21,15 @@ public static class InfrastructureServiceRegistration
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddMemoryCache();
+        services.AddScoped<ITenantContext, TenantContext>();
+        services.AddScoped<ITenantStore, TenantStore>();
+        services.AddScoped<IFeatureEvaluationService, FeatureEvaluationService>();
+        services.AddScoped<ITenantCache, TenantMemoryCache>();
+        services.AddScoped<ITenantStorageService, TenantStorageService>();
+        services.AddScoped<ITenantOnboardingService, TenantOnboardingService>();
+        services.AddScoped<IBillingService, StripeBillingService>();
+
         services.AddIdentity<User, Role>(options =>
         {
             options.Password.RequireDigit = true;
@@ -24,9 +38,7 @@ public static class InfrastructureServiceRegistration
             options.Password.RequireNonAlphanumeric = true;
             options.Password.RequiredLength = 10;
             options.Password.RequiredUniqueChars = 4;
-
             options.User.RequireUniqueEmail = true;
-
             options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(10);
             options.Lockout.MaxFailedAccessAttempts = 5;
             options.Lockout.AllowedForNewUsers = true;
@@ -57,29 +69,36 @@ public static class InfrastructureServiceRegistration
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.Zero
             };
+
+            options.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = async context =>
+                {
+                    var tenantClaim = context.Principal?.FindFirst("tenant_id")?.Value;
+                    if (!Guid.TryParse(tenantClaim, out var tenantId))
+                    {
+                        context.Fail("Missing tenant claim");
+                        return;
+                    }
+
+                    var db = context.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
+                    var exists = await db.Tenants.AnyAsync(x => x.Id == tenantId && !x.IsDeleted);
+                    if (!exists)
+                    {
+                        context.Fail("Invalid tenant.");
+                    }
+                }
+            };
         });
 
         services.AddAuthorization(options =>
         {
-            options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
-            options.AddPolicy("User", policy => policy.RequireRole("User"));
+            options.AddPolicy("Admin", policy => policy.RequireRole("Admin", "TenantAdmin"));
+            options.AddPolicy("User", policy => policy.RequireRole("User", "TenantUser"));
             options.AddPolicy("ManageUsers", policy => policy.RequireAssertion(context =>
                 context.User.IsInRole("Admin") ||
                 context.User.HasClaim(PermissionConstants.PermissionClaimType, PermissionConstants.Permissions.FullAccess) ||
                 context.User.HasClaim(PermissionConstants.PermissionClaimType, PermissionConstants.Permissions.RolesManage)));
-
-            options.AddPolicy("CanDeleteUsers", policy => policy.RequireAssertion(context =>
-                context.User.IsInRole("Admin") ||
-                context.User.HasClaim(PermissionConstants.PermissionClaimType, PermissionConstants.Permissions.FullAccess) ||
-                context.User.HasClaim(PermissionConstants.PermissionClaimType, PermissionConstants.Permissions.UsersDelete)));
-            options.AddPolicy("CanEditUsers", policy => policy.RequireAssertion(context =>
-                context.User.IsInRole("Admin") ||
-                context.User.HasClaim(PermissionConstants.PermissionClaimType, PermissionConstants.Permissions.FullAccess) ||
-                context.User.HasClaim(PermissionConstants.PermissionClaimType, PermissionConstants.Permissions.UsersEdit)));
-            options.AddPolicy("CanExportUsers", policy => policy.RequireAssertion(context =>
-                context.User.IsInRole("Admin") ||
-                context.User.HasClaim(PermissionConstants.PermissionClaimType, PermissionConstants.Permissions.FullAccess) ||
-                context.User.HasClaim(PermissionConstants.PermissionClaimType, PermissionConstants.Permissions.UsersExport)));
         });
 
         services.AddScoped<ITokenService, TokenService>();
