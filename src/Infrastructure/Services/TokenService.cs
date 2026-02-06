@@ -2,8 +2,10 @@ using Application.Common.Interfaces;
 using Domain.Authorization;
 using Domain.Entities;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Persistence;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -20,16 +22,24 @@ public class TokenService : ITokenService
     private readonly IConfiguration _configuration;
     private readonly UserManager<User> _userManager;
     private readonly RoleManager<Role> _roleManager;
+    private readonly ApplicationDbContext _dbContext;
 
-    public TokenService(IConfiguration configuration, UserManager<User> userManager, RoleManager<Role> roleManager)
+    public TokenService(IConfiguration configuration, UserManager<User> userManager, RoleManager<Role> roleManager, ApplicationDbContext dbContext)
     {
         _configuration = configuration;
         _userManager = userManager;
         _roleManager = roleManager;
+        _dbContext = dbContext;
     }
 
-    public async Task<string> GenerateAccessTokenAsync(User user, CancellationToken cancellationToken = default)
+    public async Task<string> GenerateAccessTokenAsync(User user, Guid tenantId, CancellationToken cancellationToken = default)
     {
+        var hasMembership = await _dbContext.UserTenantMemberships.AnyAsync(x => x.UserId == user.Id && x.TenantId == tenantId && !x.IsDeleted, cancellationToken);
+        if (!hasMembership)
+        {
+            throw new InvalidOperationException("User is not mapped to tenant.");
+        }
+
         var jwtSettings = _configuration.GetSection("JwtSettings");
         var secret = jwtSettings["Secret"] ?? throw new InvalidOperationException("JWT Secret is not configured.");
         var issuer = jwtSettings["Issuer"] ?? throw new InvalidOperationException("JWT Issuer is not configured.");
@@ -43,15 +53,12 @@ public class TokenService : ITokenService
         foreach (var roleName in roles)
         {
             var role = await _roleManager.FindByNameAsync(roleName);
-            if (role is null)
-            {
-                continue;
-            }
-
+            if (role is null) continue;
             var claims = await _roleManager.GetClaimsAsync(role);
             permissionClaims.AddRange(claims.Where(claim => claim.Type == PermissionConstants.PermissionClaimType));
-            permissionClaims.AddRange(claims.Where(claim => claim.Type == PermissionConstants.PermissionGroupClaimType));
         }
+
+        var membership = await _dbContext.UserTenantMemberships.FirstAsync(x => x.UserId == user.Id && x.TenantId == tenantId, cancellationToken);
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -61,8 +68,12 @@ public class TokenService : ITokenService
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.UserName ?? user.Email ?? user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email ?? ""),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new("tenant_id", tenantId.ToString()),
+            new("tenant_role", membership.Role),
+            new("tenant_permissions", membership.PermissionsCsv),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
+
         claims.AddRange(roleClaims);
         claims.AddRange(permissionClaims.DistinctBy(claim => $"{claim.Type}:{claim.Value}", StringComparer.OrdinalIgnoreCase));
 
@@ -71,8 +82,7 @@ public class TokenService : ITokenService
             audience: audience,
             claims: claims,
             expires: DateTime.UtcNow.AddMinutes(double.Parse(expiryMinutesStr)),
-            signingCredentials: creds
-        );
+            signingCredentials: creds);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
@@ -81,70 +91,46 @@ public class TokenService : ITokenService
     {
         var refreshToken = CreateSecureRandomToken();
         var refreshTokenExpiry = DateTime.UtcNow.AddDays(7);
-
         await _userManager.SetAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenName, refreshToken);
         await _userManager.SetAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenExpiryName, refreshTokenExpiry.ToString("O"));
-
         return refreshToken;
     }
 
     public async Task<bool> ValidateRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
-    {
-        var user = await GetUserFromRefreshTokenAsync(refreshToken, cancellationToken);
-        return user is not null;
-    }
+        => await GetUserFromRefreshTokenAsync(refreshToken, cancellationToken) is not null;
 
     public async Task<User?> GetUserFromRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
-        var users = _userManager.Users.Where(u => !u.IsDeleted && u.IsActive);
-
-        foreach (var user in users)
+        foreach (var user in _userManager.Users.Where(u => !u.IsDeleted && u.IsActive))
         {
             var storedToken = await _userManager.GetAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenName);
-            if (!string.Equals(storedToken, refreshToken, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
+            if (!string.Equals(storedToken, refreshToken, StringComparison.Ordinal)) continue;
             var expiryRaw = await _userManager.GetAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenExpiryName);
-            if (!DateTime.TryParse(expiryRaw, out var expiry) || expiry <= DateTime.UtcNow)
-            {
-                return null;
-            }
-
+            if (!DateTime.TryParse(expiryRaw, out var expiry) || expiry <= DateTime.UtcNow) return null;
             return user;
         }
 
         return null;
     }
 
-    public async Task<(string AccessToken, string RefreshToken)> GenerateTokenPairAsync(User user, string ipAddress, CancellationToken cancellationToken = default)
+    public async Task<(string AccessToken, string RefreshToken)> GenerateTokenPairAsync(User user, Guid tenantId, string ipAddress, CancellationToken cancellationToken = default)
     {
-        var accessToken = await GenerateAccessTokenAsync(user, cancellationToken);
+        var accessToken = await GenerateAccessTokenAsync(user, tenantId, cancellationToken);
         var refreshToken = await GenerateRefreshTokenAsync(user, cancellationToken);
         return (accessToken, refreshToken);
     }
 
-    public async Task<(string AccessToken, string RefreshToken)?> RefreshTokenAsync(string refreshToken, string ipAddress, CancellationToken cancellationToken = default)
+    public async Task<(string AccessToken, string RefreshToken)?> RefreshTokenAsync(string refreshToken, Guid tenantId, string ipAddress, CancellationToken cancellationToken = default)
     {
         var user = await GetUserFromRefreshTokenAsync(refreshToken, cancellationToken);
-        if (user is null)
-        {
-            return null;
-        }
-
-        var tokenPair = await GenerateTokenPairAsync(user, ipAddress, cancellationToken);
-        return tokenPair;
+        if (user is null) return null;
+        return await GenerateTokenPairAsync(user, tenantId, ipAddress, cancellationToken);
     }
 
     public async Task<bool> RevokeRefreshTokenAsync(string refreshToken, string ipAddress, CancellationToken cancellationToken = default)
     {
         var user = await GetUserFromRefreshTokenAsync(refreshToken, cancellationToken);
-        if (user is null)
-        {
-            return false;
-        }
-
+        if (user is null) return false;
         await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenName);
         await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenExpiryName);
         return true;
@@ -153,11 +139,7 @@ public class TokenService : ITokenService
     public async Task<int> RevokeAllRefreshTokensAsync(Guid userId, string ipAddress, CancellationToken cancellationToken = default)
     {
         var user = await _userManager.FindByIdAsync(userId.ToString());
-        if (user is null)
-        {
-            return 0;
-        }
-
+        if (user is null) return 0;
         await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenName);
         await _userManager.RemoveAuthenticationTokenAsync(user, RefreshTokenProvider, RefreshTokenExpiryName);
         return 1;

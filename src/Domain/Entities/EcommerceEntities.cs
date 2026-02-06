@@ -1,9 +1,11 @@
+using Domain.MultiTenancy;
 using System.ComponentModel.DataAnnotations;
 
 namespace Domain.Entities;
 
-public class SellerProfile : BaseEntity
+public class SellerProfile : BaseEntity, ITenantOwned
 {
+    public Guid TenantId { get; set; }
     public Guid UserId { get; set; }
     public User? User { get; set; }
 
@@ -21,8 +23,9 @@ public class SellerProfile : BaseEntity
     public ICollection<Product> Products { get; set; } = [];
 }
 
-public class Product : BaseEntity
+public class Product : BaseEntity, ITenantOwned
 {
+    public Guid TenantId { get; set; }
     public Guid SellerProfileId { get; set; }
     public SellerProfile? SellerProfile { get; set; }
 
@@ -44,8 +47,9 @@ public class Product : BaseEntity
     public ICollection<PromoCode> PromoCodes { get; set; } = [];
 }
 
-public class ProductImage : BaseEntity
+public class ProductImage : BaseEntity, ITenantOwned
 {
+    public Guid TenantId { get; set; }
     public Guid ProductId { get; set; }
     public Product? Product { get; set; }
 
@@ -58,8 +62,9 @@ public class ProductImage : BaseEntity
     public int SortOrder { get; set; }
 }
 
-public class ProductCustomField : BaseEntity
+public class ProductCustomField : BaseEntity, ITenantOwned
 {
+    public Guid TenantId { get; set; }
     public Guid ProductId { get; set; }
     public Product? Product { get; set; }
 
@@ -81,8 +86,9 @@ public class ProductCustomField : BaseEntity
     public string? AllowedOptionsCsv { get; set; }
 }
 
-public class PromoCode : BaseEntity
+public class PromoCode : BaseEntity, ITenantOwned
 {
+    public Guid TenantId { get; set; }
     public Guid ProductId { get; set; }
     public Product? Product { get; set; }
 
@@ -95,8 +101,9 @@ public class PromoCode : BaseEntity
     public bool IsActive { get; set; } = true;
 }
 
-public class Order : BaseEntity
+public class Order : BaseEntity, ITenantOwned
 {
+    public Guid TenantId { get; set; }
     public Guid? BuyerUserId { get; set; }
     public User? BuyerUser { get; set; }
 
@@ -116,8 +123,9 @@ public class Order : BaseEntity
     public ICollection<OrderItem> Items { get; set; } = [];
 }
 
-public class OrderItem : BaseEntity
+public class OrderItem : BaseEntity, ITenantOwned
 {
+    public Guid TenantId { get; set; }
     public Guid OrderId { get; set; }
     public Order? Order { get; set; }
 
@@ -134,8 +142,9 @@ public class OrderItem : BaseEntity
     public ICollection<OrderItemCustomFieldValue> CustomFieldValues { get; set; } = [];
 }
 
-public class OrderItemCustomFieldValue : BaseEntity
+public class OrderItemCustomFieldValue : BaseEntity, ITenantOwned
 {
+    public Guid TenantId { get; set; }
     public Guid OrderItemId { get; set; }
     public OrderItem? OrderItem { get; set; }
 
