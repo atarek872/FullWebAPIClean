@@ -1,4 +1,5 @@
 using Application.Common.Interfaces;
+using Domain.Authorization;
 using Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
@@ -18,11 +19,13 @@ public class TokenService : ITokenService
 
     private readonly IConfiguration _configuration;
     private readonly UserManager<User> _userManager;
+    private readonly RoleManager<Role> _roleManager;
 
-    public TokenService(IConfiguration configuration, UserManager<User> userManager)
+    public TokenService(IConfiguration configuration, UserManager<User> userManager, RoleManager<Role> roleManager)
     {
         _configuration = configuration;
         _userManager = userManager;
+        _roleManager = roleManager;
     }
 
     public async Task<string> GenerateAccessTokenAsync(User user, CancellationToken cancellationToken = default)
@@ -35,6 +38,20 @@ public class TokenService : ITokenService
 
         var roles = await _userManager.GetRolesAsync(user);
         var roleClaims = roles.Select(role => new Claim(ClaimTypes.Role, role));
+        var permissionClaims = new List<Claim>();
+
+        foreach (var roleName in roles)
+        {
+            var role = await _roleManager.FindByNameAsync(roleName);
+            if (role is null)
+            {
+                continue;
+            }
+
+            var claims = await _roleManager.GetClaimsAsync(role);
+            permissionClaims.AddRange(claims.Where(claim => claim.Type == PermissionConstants.PermissionClaimType));
+            permissionClaims.AddRange(claims.Where(claim => claim.Type == PermissionConstants.PermissionGroupClaimType));
+        }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -47,6 +64,7 @@ public class TokenService : ITokenService
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
         };
         claims.AddRange(roleClaims);
+        claims.AddRange(permissionClaims.DistinctBy(claim => $"{claim.Type}:{claim.Value}", StringComparer.OrdinalIgnoreCase));
 
         var token = new JwtSecurityToken(
             issuer: issuer,
