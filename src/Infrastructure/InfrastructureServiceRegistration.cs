@@ -62,6 +62,7 @@ public static class InfrastructureServiceRegistration
         {
             options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
             options.AddPolicy("User", policy => policy.RequireRole("User"));
+            options.AddPolicy("Seller", policy => policy.RequireRole("Seller"));
             options.AddPolicy("ManageUsers", policy => policy.RequireRole("Admin"));
         });
 
