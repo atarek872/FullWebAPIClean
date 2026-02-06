@@ -21,13 +21,20 @@ public static class InfrastructureServiceRegistration
             options.Password.RequireLowercase = true;
             options.Password.RequireUppercase = true;
             options.Password.RequireNonAlphanumeric = true;
-            options.Password.RequiredLength = 8;
+            options.Password.RequiredLength = 10;
+            options.Password.RequiredUniqueChars = 4;
+
+            options.User.RequireUniqueEmail = true;
+
+            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(10);
+            options.Lockout.MaxFailedAccessAttempts = 5;
+            options.Lockout.AllowedForNewUsers = true;
         })
         .AddEntityFrameworkStores<ApplicationDbContext>()
         .AddDefaultTokenProviders();
 
         var jwtSettings = configuration.GetSection("JwtSettings");
-        var key = Encoding.ASCII.GetBytes(jwtSettings["Secret"] ?? "");
+        var key = Encoding.ASCII.GetBytes(jwtSettings["Secret"] ?? throw new InvalidOperationException("JWT secret is not configured"));
 
         services.AddAuthentication(options =>
         {
@@ -55,6 +62,7 @@ public static class InfrastructureServiceRegistration
         {
             options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
             options.AddPolicy("User", policy => policy.RequireRole("User"));
+            options.AddPolicy("ManageUsers", policy => policy.RequireRole("Admin"));
         });
 
         services.AddScoped<ITokenService, TokenService>();

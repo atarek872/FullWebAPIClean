@@ -16,6 +16,7 @@ using Serilog;
 using System.Reflection;
 using System.Text;
 using System.Threading.RateLimiting;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,7 +44,30 @@ builder.Services.AddControllers();
 
 // Add Swagger
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo { Title = "FullWebAPI", Version = "v1" });
+    var securityScheme = new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Description = "Enter Bearer {token}",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Reference = new OpenApiReference
+        {
+            Type = ReferenceType.SecurityScheme,
+            Id = JwtBearerDefaults.AuthenticationScheme
+        }
+    };
+
+    options.AddSecurityDefinition(JwtBearerDefaults.AuthenticationScheme, securityScheme);
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        { securityScheme, Array.Empty<string>() }
+    });
+});
 
 // Add health checks
 builder.Services.AddHealthChecks();
@@ -53,7 +77,9 @@ builder.Services.AddRateLimiter(options =>
 {
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
-        var userId = context.User.Identity?.Name ?? context.Request.Headers["X-Forwarded-For"].ToString() ?? "anonymous";
+        var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? context.Connection.RemoteIpAddress?.ToString()
+            ?? "anonymous";
         return RateLimitPartition.GetFixedWindowLimiter(userId, partition => new FixedWindowRateLimiterOptions
         {
             AutoReplenishment = true,
@@ -108,4 +134,22 @@ app.MapControllers();
 
 app.MapHealthChecks("/health");
 
+await SeedIdentityDataAsync(app);
+
 app.Run();
+
+static async Task SeedIdentityDataAsync(WebApplication app)
+{
+    using var scope = app.Services.CreateScope();
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<Role>>();
+
+    var roles = new[] { "Admin", "User" };
+    foreach (var roleName in roles)
+    {
+        if (!await roleManager.RoleExistsAsync(roleName))
+        {
+            await roleManager.CreateAsync(new Role { Name = roleName, Description = $"Default {roleName} role" });
+        }
+    }
+}
+
