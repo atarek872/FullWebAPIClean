@@ -1,4 +1,5 @@
 using Application.Common.Interfaces;
+using Domain.Authorization;
 using Domain.Entities;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -62,8 +63,23 @@ public static class InfrastructureServiceRegistration
         {
             options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
             options.AddPolicy("User", policy => policy.RequireRole("User"));
-            options.AddPolicy("Seller", policy => policy.RequireRole("Seller"));
-            options.AddPolicy("ManageUsers", policy => policy.RequireRole("Admin"));
+            options.AddPolicy("ManageUsers", policy => policy.RequireAssertion(context =>
+                context.User.IsInRole("Admin") ||
+                context.User.HasClaim(PermissionConstants.PermissionClaimType, PermissionConstants.Permissions.FullAccess) ||
+                context.User.HasClaim(PermissionConstants.PermissionClaimType, PermissionConstants.Permissions.RolesManage)));
+
+            options.AddPolicy("CanDeleteUsers", policy => policy.RequireAssertion(context =>
+                context.User.IsInRole("Admin") ||
+                context.User.HasClaim(PermissionConstants.PermissionClaimType, PermissionConstants.Permissions.FullAccess) ||
+                context.User.HasClaim(PermissionConstants.PermissionClaimType, PermissionConstants.Permissions.UsersDelete)));
+            options.AddPolicy("CanEditUsers", policy => policy.RequireAssertion(context =>
+                context.User.IsInRole("Admin") ||
+                context.User.HasClaim(PermissionConstants.PermissionClaimType, PermissionConstants.Permissions.FullAccess) ||
+                context.User.HasClaim(PermissionConstants.PermissionClaimType, PermissionConstants.Permissions.UsersEdit)));
+            options.AddPolicy("CanExportUsers", policy => policy.RequireAssertion(context =>
+                context.User.IsInRole("Admin") ||
+                context.User.HasClaim(PermissionConstants.PermissionClaimType, PermissionConstants.Permissions.FullAccess) ||
+                context.User.HasClaim(PermissionConstants.PermissionClaimType, PermissionConstants.Permissions.UsersExport)));
         });
 
         services.AddScoped<ITokenService, TokenService>();

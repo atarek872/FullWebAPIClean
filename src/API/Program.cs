@@ -1,5 +1,6 @@
 using Application;
 using Application.Common.Behaviors;
+using Domain.Authorization;
 using Domain.Entities;
 using FluentValidation;
 using Infrastructure;
@@ -143,12 +144,32 @@ static async Task SeedIdentityDataAsync(WebApplication app)
     using var scope = app.Services.CreateScope();
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<Role>>();
 
-    var roles = new[] { "Admin", "User", "Guest", "Seller" };
-    foreach (var roleName in roles)
+    var defaultRoles = new[]
     {
-        if (!await roleManager.RoleExistsAsync(roleName))
+        new { Name = "Admin", Description = "Default Admin role", Permissions = PermissionConstants.All.ToArray() },
+        new { Name = "User", Description = "Default User role", Permissions = new[] { PermissionConstants.Permissions.UsersView } }
+    };
+
+    foreach (var roleDefinition in defaultRoles)
+    {
+        var role = await roleManager.FindByNameAsync(roleDefinition.Name);
+        if (role is null)
         {
-            await roleManager.CreateAsync(new Role { Name = roleName, Description = $"Default {roleName} role" });
+            role = new Role { Name = roleDefinition.Name, Description = roleDefinition.Description };
+            await roleManager.CreateAsync(role);
+        }
+
+        var existingClaims = await roleManager.GetClaimsAsync(role);
+        foreach (var permission in roleDefinition.Permissions)
+        {
+            if (existingClaims.Any(claim =>
+                    claim.Type == PermissionConstants.PermissionClaimType &&
+                    claim.Value.Equals(permission, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim(PermissionConstants.PermissionClaimType, permission));
         }
     }
 }
