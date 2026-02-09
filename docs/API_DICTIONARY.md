@@ -1,5 +1,9 @@
 # FullWebAPI — Complete API Dictionary (Phase 1)
 
+> Scope note: analysis was generated from the local backend repository content in this workspace.
+>
+> ملاحظة: التحليل اتعمل من نسخة الـ Backend الموجودة محليًا داخل الـ workspace.
+
 This dictionary is generated from all API controllers, endpoint attributes, in-controller DTOs, tenant/auth middleware, and authorization policy setup.
 
 ## Global Cross-Cutting Rules
