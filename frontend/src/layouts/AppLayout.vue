@@ -13,10 +13,6 @@ interface SidebarItem {
   permission?: string;
 }
 
-const modulePermissions: Record<string, string | undefined> = {
-  users: 'users.view',
-  roles: 'roles.manage'
-};
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -33,7 +29,7 @@ const sidebarItems = computed<SidebarItem[]>(() => {
   const moduleItems = adminModules.map((module) => ({
     label: module.title,
     to: module.routeBase.replace('/admin', ''),
-    permission: modulePermissions[module.key]
+    permission: module.permission
   }));
 
   const permissions = tokenManager.getPermissions();

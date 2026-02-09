@@ -2,21 +2,25 @@ import api from '@/api/httpClient';
 import type { ProductSearchResponse } from '@/types/ecommerce';
 
 export interface CreateProductImageRequest {
-  url: string;
+  imageUrl: string;
   altText?: string;
-  sortOrder?: number;
 }
 
 export interface CreateProductCustomFieldRequest {
   key: string;
   label: string;
+  inputType: string;
   isRequired: boolean;
+  placeholder?: string;
+  allowedOptions?: string[];
 }
 
 export interface CreatePromoCodeRequest {
   code: string;
   discountPercentage: number;
-  expiresAtUtc?: string;
+  startsAtUtc: string;
+  endsAtUtc: string;
+  isActive: boolean;
 }
 
 export interface CreateProductRequest {

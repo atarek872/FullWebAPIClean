@@ -1,15 +1,11 @@
 export type AdminModuleKey =
   | 'users'
-  | 'auth'
   | 'roles'
   | 'tenants'
   | 'products'
   | 'orders'
-  | 'settings'
-  | 'logs'
-  | 'notifications'
-  | 'audit-trail'
-  | 'multi-tenant-selector';
+  | 'auth-registration'
+  | 'seller-profile';
 
 export interface ModuleField {
   key: string;
@@ -31,6 +27,7 @@ export interface AdminModuleDefinition {
   routeBase: string;
   fields: ModuleField[];
   capabilities: ModuleCapabilities;
+  permission?: string;
 }
 
 export const adminModules: AdminModuleDefinition[] = [
@@ -38,6 +35,7 @@ export const adminModules: AdminModuleDefinition[] = [
     key: 'users',
     title: 'Users',
     routeBase: '/admin/users',
+    permission: 'users.view',
     capabilities: { list: true, create: true, update: true, remove: true },
     fields: [
       { key: 'email', label: 'Email', required: true, type: 'email' },
@@ -49,20 +47,10 @@ export const adminModules: AdminModuleDefinition[] = [
     ]
   },
   {
-    key: 'auth',
-    title: 'Auth',
-    routeBase: '/admin/auth',
-    capabilities: { create: true },
-    fields: [
-      { key: 'email', label: 'Email', required: true, type: 'email' },
-      { key: 'password', label: 'Password', required: true, type: 'password' },
-      { key: 'tenantId', label: 'Tenant ID', required: true }
-    ]
-  },
-  {
     key: 'roles',
     title: 'Roles',
     routeBase: '/admin/roles',
+    permission: 'roles.manage',
     capabilities: { list: true, create: true, update: true, remove: true },
     fields: [
       { key: 'name', label: 'Name', required: true },
@@ -74,6 +62,7 @@ export const adminModules: AdminModuleDefinition[] = [
     key: 'tenants',
     title: 'Tenants',
     routeBase: '/admin/tenants',
+    permission: 'full_access',
     capabilities: { list: true, create: true },
     fields: [
       { key: 'name', label: 'Name', required: true },
@@ -96,7 +85,7 @@ export const adminModules: AdminModuleDefinition[] = [
   },
   {
     key: 'orders',
-    title: 'Orders',
+    title: 'Checkout Orders',
     routeBase: '/admin/orders',
     capabilities: { create: true },
     fields: [
@@ -107,59 +96,29 @@ export const adminModules: AdminModuleDefinition[] = [
     ]
   },
   {
-    key: 'settings',
-    title: 'Settings',
-    routeBase: '/admin/settings',
+    key: 'auth-registration',
+    title: 'Register User',
+    routeBase: '/admin/auth-registration',
     capabilities: { create: true },
     fields: [
+      { key: 'email', label: 'Email', required: true, type: 'email' },
+      { key: 'password', label: 'Password', required: true, type: 'password' },
+      { key: 'firstName', label: 'First Name', required: true },
+      { key: 'lastName', label: 'Last Name', required: true },
       { key: 'tenantId', label: 'Tenant ID', required: true },
-      { key: 'settingsJson', label: 'Settings JSON', type: 'textarea' },
-      { key: 'apiRequestLimitPerDay', label: 'API Request Limit / Day', type: 'number' },
-      { key: 'storageLimitMb', label: 'Storage Limit MB', type: 'number' }
+      { key: 'roles', label: 'Roles (comma separated)' }
     ]
   },
   {
-    key: 'logs',
-    title: 'Logs',
-    routeBase: '/admin/logs',
-    capabilities: {},
+    key: 'seller-profile',
+    title: 'Seller Profile',
+    routeBase: '/admin/seller-profile',
+    capabilities: { create: true },
     fields: [
-      { key: 'level', label: 'Level', required: true },
-      { key: 'message', label: 'Message', required: true, type: 'textarea' },
-      { key: 'source', label: 'Source', required: true }
-    ]
-  },
-  {
-    key: 'notifications',
-    title: 'Notifications',
-    routeBase: '/admin/notifications',
-    capabilities: {},
-    fields: [
-      { key: 'title', label: 'Title', required: true },
-      { key: 'message', label: 'Message', required: true, type: 'textarea' },
-      { key: 'channel', label: 'Channel', required: true }
-    ]
-  },
-  {
-    key: 'audit-trail',
-    title: 'Audit Trail',
-    routeBase: '/admin/audit-trail',
-    capabilities: {},
-    fields: [
-      { key: 'action', label: 'Action', required: true },
-      { key: 'entity', label: 'Entity', required: true },
-      { key: 'actor', label: 'Actor', required: true }
-    ]
-  },
-  {
-    key: 'multi-tenant-selector',
-    title: 'Multi-tenant Selector',
-    routeBase: '/admin/multi-tenant-selector',
-    capabilities: {},
-    fields: [
-      { key: 'tenantId', label: 'Tenant ID', required: true },
-      { key: 'tenantName', label: 'Tenant Name', required: true },
-      { key: 'isDefault', label: 'Default Tenant', type: 'checkbox' }
+      { key: 'storeName', label: 'Store Name', required: true },
+      { key: 'storeDescription', label: 'Description', type: 'textarea' },
+      { key: 'slug', label: 'Slug' },
+      { key: 'isPublished', label: 'Published', type: 'checkbox' }
     ]
   }
 ];

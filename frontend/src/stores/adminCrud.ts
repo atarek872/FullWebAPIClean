@@ -1,22 +1,18 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { adminModulesMap, type AdminModuleKey } from '@/modules/adminModules';
-import { UsersService, RolesService, TenantsService, ProductsService, OrdersService, AuthService } from '@/services/api';
+import { UsersService, RolesService, TenantsService, ProductsService, OrdersService, AuthService, SellerProfilesService } from '@/services/api';
 
 export type CrudRecord = Record<string, unknown> & { id: string };
 
 const byModule = ref<Record<AdminModuleKey, CrudRecord[]>>({
   users: [],
-  auth: [],
   roles: [],
   tenants: [],
   products: [],
   orders: [],
-  settings: [],
-  logs: [],
-  notifications: [],
-  'audit-trail': [],
-  'multi-tenant-selector': []
+  'auth-registration': [],
+  'seller-profile': []
 });
 
 const loading = ref(false);
@@ -70,6 +66,7 @@ export const useAdminCrudStore = defineStore('adminCrud', () => {
           byModule.value.products = data.items.map((item) => ({ ...item }));
           break;
         }
+
         default:
           byModule.value[moduleKey] = [];
       }
@@ -150,27 +147,29 @@ export const useAdminCrudStore = defineStore('adminCrud', () => {
           byModule.value.orders.unshift({ id: genId(), ...payload });
           break;
         }
-        case 'auth': {
+        case 'auth-registration': {
           await AuthService.register({
             email: String(payload.email ?? ''),
             password: String(payload.password ?? ''),
             tenantId: String(payload.tenantId ?? ''),
-            firstName: 'Portal',
-            lastName: 'User'
+            firstName: String(payload.firstName ?? ''),
+            lastName: String(payload.lastName ?? '')
           });
-          byModule.value.auth.unshift({ id: genId(), ...payload });
+          byModule.value['auth-registration'].unshift({ id: genId(), ...payload });
           break;
         }
-        case 'settings': {
-          await TenantsService.updateSettings({
-            tenantId: String(payload.tenantId ?? ''),
-            settingsJson: String(payload.settingsJson ?? ''),
-            apiRequestLimitPerDay: Number(payload.apiRequestLimitPerDay ?? 0) || undefined,
-            storageLimitMb: Number(payload.storageLimitMb ?? 0) || undefined
+
+        case 'seller-profile': {
+          await SellerProfilesService.upsert({
+            storeName: String(payload.storeName ?? ''),
+            storeDescription: String(payload.storeDescription ?? ''),
+            slug: String(payload.slug ?? ''),
+            isPublished: Boolean(payload.isPublished)
           });
-          byModule.value.settings.unshift({ id: genId(), ...payload });
+          byModule.value['seller-profile'].unshift({ id: genId(), ...payload });
           break;
         }
+
         default:
           throw new Error(`No create API is configured for module '${moduleKey}'.`);
       }
