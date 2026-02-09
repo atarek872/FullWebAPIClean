@@ -1,5 +1,27 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { tokenManager } from '@/services/tokenManager';
+import { adminModules } from '@/modules/adminModules';
+
+const adminRoutes = adminModules.flatMap((module) => [
+  {
+    path: module.routeBase.replace('/admin/', ''),
+    name: `${module.key}-list`,
+    component: () => import('@/views/admin/CrudListView.vue'),
+    meta: { requiresAuth: true, moduleKey: module.key }
+  },
+  {
+    path: `${module.routeBase.replace('/admin/', '')}/create`,
+    name: `${module.key}-create`,
+    component: () => import('@/views/admin/CrudFormView.vue'),
+    meta: { requiresAuth: true, moduleKey: module.key }
+  },
+  {
+    path: `${module.routeBase.replace('/admin/', '')}/:id/edit`,
+    name: `${module.key}-edit`,
+    component: () => import('@/views/admin/CrudFormView.vue'),
+    meta: { requiresAuth: true, moduleKey: module.key }
+  }
+]);
 
 const router = createRouter({
   history: createWebHistory(),
@@ -17,7 +39,7 @@ const router = createRouter({
       children: [
         { path: '', redirect: '/dashboard' },
         { path: 'dashboard', name: 'dashboard', component: () => import('@/views/dashboard/DashboardView.vue') },
-        { path: 'products', name: 'products', component: () => import('@/views/ecommerce/ProductsView.vue') }
+        ...adminRoutes
       ]
     }
   ]
