@@ -17,6 +17,8 @@ const isEdit = computed(() => route.name?.toString().endsWith('-edit'));
 const form = reactive<Record<string, unknown>>({});
 const errors = ref<Record<string, string>>({});
 
+const supportsCurrentAction = computed(() => (isEdit.value ? moduleDef.value.capabilities.update : moduleDef.value.capabilities.create));
+
 const hydrateForm = () => {
   Object.assign(form, store.buildInitialForm(moduleKey.value));
 
@@ -29,7 +31,7 @@ const hydrateForm = () => {
 };
 
 onMounted(async () => {
-  if (!store.byModule[moduleKey.value].length) {
+  if (moduleDef.value.capabilities.list && !store.byModule[moduleKey.value].length) {
     await store.load(moduleKey.value);
   }
   hydrateForm();
@@ -39,8 +41,29 @@ const validate = () => {
   const next: Record<string, string> = {};
 
   moduleDef.value.fields.forEach((field) => {
-    if (field.required && !String(form[field.key] ?? '').trim()) {
+    const value = form[field.key];
+    const rawValue = String(value ?? '').trim();
+
+    if (field.required && !rawValue) {
       next[field.key] = `${field.label} is required`;
+      return;
+    }
+
+    if (!rawValue && field.type !== 'checkbox') {
+      return;
+    }
+
+    if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawValue)) {
+      next[field.key] = `${field.label} must be a valid email`;
+    }
+
+    if (field.type === 'number' && Number.isNaN(Number(value))) {
+      next[field.key] = `${field.label} must be a number`;
+    }
+
+    if ((field.key.toLowerCase().includes('tenantid') || field.key.toLowerCase().includes('productid')) &&
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rawValue)) {
+      next[field.key] = `${field.label} must be a valid GUID`;
     }
   });
 
@@ -49,7 +72,7 @@ const validate = () => {
 };
 
 const onSubmit = async () => {
-  if (!validate()) {
+  if (!supportsCurrentAction.value || !validate()) {
     return;
   }
 
@@ -67,6 +90,7 @@ const onSubmit = async () => {
   <BaseCard>
     <h2 style="margin-top:0">{{ moduleDef.title }} - {{ isEdit ? 'Edit' : 'Create' }}</h2>
     <p v-if="store.error" style="color:#b91c1c;">{{ store.error }}</p>
+    <p v-if="!supportsCurrentAction" style="color:#92400e;">This action is not supported by the current API.</p>
 
     <form @submit.prevent="onSubmit" style="display:grid;gap:0.75rem;">
       <label v-for="field in moduleDef.fields" :key="field.key" style="display:grid;gap:0.25rem;">
@@ -84,7 +108,9 @@ const onSubmit = async () => {
 
       <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
         <RouterLink :to="moduleDef.routeBase" class="btn" style="text-decoration:none;">Cancel</RouterLink>
-        <button class="btn btn-primary" :disabled="store.loading" type="submit">{{ isEdit ? 'Update' : 'Create' }}</button>
+        <button class="btn btn-primary" type="submit" :disabled="store.loading || !supportsCurrentAction">
+          {{ store.loading ? 'Saving...' : 'Save' }}
+        </button>
       </div>
     </form>
   </BaseCard>
