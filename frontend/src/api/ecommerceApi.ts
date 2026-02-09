@@ -1,10 +1,5 @@
-import api from '@/api/httpClient';
-import type { ProductSearchResponse } from '@/types/ecommerce';
+import { ProductsService } from '@/services/api/ProductsService';
 
 export const ecommerceApi = {
-  searchProducts(query: string, page = 1, pageSize = 20) {
-    return api.get<ProductSearchResponse>('/api/ecommerce/products/search', {
-      params: { query, page, pageSize }
-    });
-  }
+  searchProducts: ProductsService.search
 };
