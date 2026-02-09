@@ -1,11 +1,6 @@
-import api from '@/api/httpClient';
-import type { LoginRequest, LoginResponse } from '@/types/auth';
+import { AuthService } from '@/services/api/AuthService';
 
 export const authApi = {
-  login(payload: LoginRequest) {
-    return api.post<LoginResponse>('/api/auth/login', payload);
-  },
-  revokeAll() {
-    return api.post('/api/auth/revoke-all');
-  }
+  login: AuthService.login,
+  revokeAll: AuthService.revokeAll
 };

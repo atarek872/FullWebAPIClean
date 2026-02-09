@@ -1,7 +1,5 @@
-import api from '@/api/httpClient';
+import { HelloService } from '@/services/api/HelloService';
 
 export const helloApi = {
-  getHello() {
-    return api.get<{ message: string; timestamp: string }>('/api/hello');
-  }
+  getHello: HelloService.get
 };
