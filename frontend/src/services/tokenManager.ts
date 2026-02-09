@@ -12,6 +12,39 @@ export interface AuthSession {
   };
 }
 
+interface JwtPayload {
+  permission?: string | string[];
+  permissions?: string[];
+  scp?: string | string[];
+}
+
+const decodeJwtPayload = (token: string): JwtPayload | null => {
+  const [, payload] = token.split('.');
+  if (!payload) {
+    return null;
+  }
+
+  try {
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = atob(normalized);
+    return JSON.parse(decoded) as JwtPayload;
+  } catch {
+    return null;
+  }
+};
+
+const normalizePermissions = (value: string | string[] | undefined) => {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  return value.split(' ').filter(Boolean);
+};
+
 export const tokenManager = {
   getSession() {
     return storage.get<AuthSession>(STORAGE_KEYS.auth);
@@ -27,5 +60,24 @@ export const tokenManager = {
   },
   setTenantId(tenantId: string) {
     storage.set(STORAGE_KEYS.tenantId, tenantId);
+  },
+  getPermissions() {
+    const token = this.getSession()?.accessToken;
+    if (!token) {
+      return [];
+    }
+
+    const payload = decodeJwtPayload(token);
+    if (!payload) {
+      return [];
+    }
+
+    const unique = new Set<string>([
+      ...normalizePermissions(payload.permission),
+      ...normalizePermissions(payload.permissions),
+      ...normalizePermissions(payload.scp)
+    ]);
+
+    return [...unique];
   }
 };

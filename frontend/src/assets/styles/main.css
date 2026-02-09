@@ -3,6 +3,19 @@
   line-height: 1.5;
   color: #0f172a;
   background-color: #f8fafc;
+  --bg: #f8fafc;
+  --text: #0f172a;
+  --surface: #ffffff;
+  --border: #cbd5e1;
+  --primary: #2563eb;
+}
+
+:root[data-theme='dark'] {
+  --bg: #020617;
+  --text: #e2e8f0;
+  --surface: #0f172a;
+  --border: #334155;
+  --primary: #60a5fa;
 }
 
 * {
@@ -11,6 +24,8 @@
 
 body {
   margin: 0;
+  background: var(--bg);
+  color: var(--text);
 }
 
 a {
@@ -24,14 +39,16 @@ a {
 }
 
 .card {
-  background: #fff;
+  background: var(--surface);
   border-radius: 12px;
   padding: 1rem;
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
 }
 
 .btn {
-  border: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
   border-radius: 8px;
   padding: 0.6rem 1rem;
   font-weight: 600;
@@ -39,13 +56,15 @@ a {
 }
 
 .btn-primary {
-  background: #2563eb;
+  background: var(--primary);
   color: #fff;
 }
 
 .input {
   width: 100%;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
 }
@@ -53,6 +72,78 @@ a {
 .btn-danger {
   background: #dc2626;
   color: #fff;
+}
+
+.dashboard-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sidebar-link {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+.sidebar-link.is-active {
+  background: var(--primary);
+  color: #fff;
+}
+
+.workspace {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 1rem;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.menu-wrapper {
+  position: relative;
+}
+
+.dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  width: 220px;
+  z-index: 5;
+}
+
+.content {
+  min-width: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
 .modal-backdrop {
