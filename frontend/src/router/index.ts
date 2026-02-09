@@ -2,24 +2,38 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { tokenManager } from '@/services/tokenManager';
 import { adminModules } from '@/modules/adminModules';
 
+const modulePermissions: Record<string, string | undefined> = {
+  users: 'users.view',
+  roles: 'roles.manage'
+};
+
+const hasPermission = (requiredPermission?: string) => {
+  if (!requiredPermission) {
+    return true;
+  }
+
+  const permissions = tokenManager.getPermissions();
+  return permissions.includes('full_access') || permissions.includes(requiredPermission);
+};
+
 const adminRoutes = adminModules.flatMap((module) => [
   {
     path: module.routeBase.replace('/admin/', ''),
     name: `${module.key}-list`,
     component: () => import('@/views/admin/CrudListView.vue'),
-    meta: { requiresAuth: true, moduleKey: module.key }
+    meta: { requiresAuth: true, moduleKey: module.key, permission: modulePermissions[module.key] }
   },
   {
     path: `${module.routeBase.replace('/admin/', '')}/create`,
     name: `${module.key}-create`,
     component: () => import('@/views/admin/CrudFormView.vue'),
-    meta: { requiresAuth: true, moduleKey: module.key }
+    meta: { requiresAuth: true, moduleKey: module.key, permission: modulePermissions[module.key] }
   },
   {
     path: `${module.routeBase.replace('/admin/', '')}/:id/edit`,
     name: `${module.key}-edit`,
     component: () => import('@/views/admin/CrudFormView.vue'),
-    meta: { requiresAuth: true, moduleKey: module.key }
+    meta: { requiresAuth: true, moduleKey: module.key, permission: modulePermissions[module.key] }
   }
 ]);
 
@@ -53,6 +67,10 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.guestOnly && isAuthenticated) {
+    return { name: 'dashboard' };
+  }
+
+  if (to.meta.requiresAuth && !hasPermission(to.meta.permission as string | undefined)) {
     return { name: 'dashboard' };
   }
 
