@@ -2,11 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { tokenManager } from '@/services/tokenManager';
 import { adminModules } from '@/modules/adminModules';
 
-const modulePermissions: Record<string, string | undefined> = {
-  users: 'users.view',
-  roles: 'roles.manage'
-};
-
 const hasPermission = (requiredPermission?: string) => {
   if (!requiredPermission) {
     return true;
@@ -21,19 +16,19 @@ const adminRoutes = adminModules.flatMap((module) => [
     path: module.routeBase.replace('/admin/', ''),
     name: `${module.key}-list`,
     component: () => import('@/views/admin/CrudListView.vue'),
-    meta: { requiresAuth: true, moduleKey: module.key, permission: modulePermissions[module.key] }
+    meta: { requiresAuth: true, moduleKey: module.key, permission: module.permission }
   },
   {
     path: `${module.routeBase.replace('/admin/', '')}/create`,
     name: `${module.key}-create`,
     component: () => import('@/views/admin/CrudFormView.vue'),
-    meta: { requiresAuth: true, moduleKey: module.key, permission: modulePermissions[module.key] }
+    meta: { requiresAuth: true, moduleKey: module.key, permission: module.permission }
   },
   {
     path: `${module.routeBase.replace('/admin/', '')}/:id/edit`,
     name: `${module.key}-edit`,
     component: () => import('@/views/admin/CrudFormView.vue'),
-    meta: { requiresAuth: true, moduleKey: module.key, permission: modulePermissions[module.key] }
+    meta: { requiresAuth: true, moduleKey: module.key, permission: module.permission }
   }
 ]);
 
@@ -46,6 +41,10 @@ const router = createRouter({
       component: () => import('@/views/auth/LoginView.vue'),
       meta: { guestOnly: true }
     },
+    { path: '/401', name: 'error-401', component: () => import('@/views/errors/Error401View.vue') },
+    { path: '/403', name: 'error-403', component: () => import('@/views/errors/Error403View.vue') },
+    { path: '/404', name: 'error-404', component: () => import('@/views/errors/Error404View.vue') },
+    { path: '/500', name: 'error-500', component: () => import('@/views/errors/Error500View.vue') },
     {
       path: '/',
       component: () => import('@/views/ShellView.vue'),
@@ -55,7 +54,8 @@ const router = createRouter({
         { path: 'dashboard', name: 'dashboard', component: () => import('@/views/dashboard/DashboardView.vue') },
         ...adminRoutes
       ]
-    }
+    },
+    { path: '/:pathMatch(.*)*', redirect: '/404' }
   ]
 });
 
@@ -63,7 +63,7 @@ router.beforeEach((to) => {
   const isAuthenticated = Boolean(tokenManager.getSession()?.accessToken);
 
   if (to.meta.requiresAuth && !isAuthenticated) {
-    return { name: 'login' };
+    return { name: 'error-401' };
   }
 
   if (to.meta.guestOnly && isAuthenticated) {
@@ -71,7 +71,7 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.requiresAuth && !hasPermission(to.meta.permission as string | undefined)) {
-    return { name: 'dashboard' };
+    return { name: 'error-403' };
   }
 
   return true;

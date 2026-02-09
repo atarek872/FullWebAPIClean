@@ -14,7 +14,7 @@ const moduleDef = computed(() => adminModulesMap[moduleKey.value]);
 const id = computed(() => String(route.params.id ?? ''));
 const isEdit = computed(() => route.name?.toString().endsWith('-edit'));
 
-const form = reactive<Record<string, unknown>>({});
+const form = reactive<Record<string, string | number | boolean>>({});
 const errors = ref<Record<string, string>>({});
 
 const supportsCurrentAction = computed(() => (isEdit.value ? moduleDef.value.capabilities.update : moduleDef.value.capabilities.create));
@@ -41,7 +41,7 @@ const validate = () => {
   const next: Record<string, string> = {};
 
   moduleDef.value.fields.forEach((field) => {
-    const value = form[field.key];
+    const value = form[field.key] as string | number | boolean | undefined;
     const rawValue = String(value ?? '').trim();
 
     if (field.required && !rawValue) {
@@ -97,11 +97,12 @@ const onSubmit = async () => {
         <span>{{ field.label }}</span>
         <input
           v-if="field.type !== 'textarea' && field.type !== 'checkbox'"
-          v-model="form[field.key]"
+          :value="String(form[field.key] ?? '')"
           class="input"
           :type="field.type ?? 'text'"
+          @input="form[field.key] = ($event.target as HTMLInputElement).value"
         />
-        <textarea v-else-if="field.type === 'textarea'" v-model="form[field.key]" class="input" rows="3" />
+        <textarea v-else-if="field.type === 'textarea'" class="input" rows="3" :value="String(form[field.key] ?? '')" @input="form[field.key] = ($event.target as HTMLTextAreaElement).value" />
         <input v-else v-model="form[field.key]" type="checkbox" style="width:20px;height:20px;" />
         <small v-if="errors[field.key]" style="color:#b91c1c;">{{ errors[field.key] }}</small>
       </label>
