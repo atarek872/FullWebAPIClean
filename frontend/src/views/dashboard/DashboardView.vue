@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import BaseCard from '@/components/common/BaseCard.vue';
-import { helloApi } from '@/api/helloApi';
+import { HelloService } from '@/services/api';
 
 const helloMessage = ref('Loading...');
 
 onMounted(async () => {
-  const { data } = await helloApi.getHello();
+  const { data } = await HelloService.get();
   helloMessage.value = `${data.message} (${new Date(data.timestamp).toLocaleString()})`;
 });
 </script>

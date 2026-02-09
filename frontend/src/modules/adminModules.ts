@@ -18,11 +18,19 @@ export interface ModuleField {
   type?: 'text' | 'email' | 'password' | 'number' | 'textarea' | 'checkbox';
 }
 
+export interface ModuleCapabilities {
+  list?: boolean;
+  create?: boolean;
+  update?: boolean;
+  remove?: boolean;
+}
+
 export interface AdminModuleDefinition {
   key: AdminModuleKey;
   title: string;
   routeBase: string;
   fields: ModuleField[];
+  capabilities: ModuleCapabilities;
 }
 
 export const adminModules: AdminModuleDefinition[] = [
@@ -30,6 +38,7 @@ export const adminModules: AdminModuleDefinition[] = [
     key: 'users',
     title: 'Users',
     routeBase: '/admin/users',
+    capabilities: { list: true, create: true, update: true, remove: true },
     fields: [
       { key: 'email', label: 'Email', required: true, type: 'email' },
       { key: 'password', label: 'Password', required: true, type: 'password' },
@@ -43,6 +52,7 @@ export const adminModules: AdminModuleDefinition[] = [
     key: 'auth',
     title: 'Auth',
     routeBase: '/admin/auth',
+    capabilities: { create: true },
     fields: [
       { key: 'email', label: 'Email', required: true, type: 'email' },
       { key: 'password', label: 'Password', required: true, type: 'password' },
@@ -53,6 +63,7 @@ export const adminModules: AdminModuleDefinition[] = [
     key: 'roles',
     title: 'Roles',
     routeBase: '/admin/roles',
+    capabilities: { list: true, create: true, update: true, remove: true },
     fields: [
       { key: 'name', label: 'Name', required: true },
       { key: 'description', label: 'Description', type: 'textarea' },
@@ -63,6 +74,7 @@ export const adminModules: AdminModuleDefinition[] = [
     key: 'tenants',
     title: 'Tenants',
     routeBase: '/admin/tenants',
+    capabilities: { list: true, create: true },
     fields: [
       { key: 'name', label: 'Name', required: true },
       { key: 'slug', label: 'Slug', required: true },
@@ -74,6 +86,7 @@ export const adminModules: AdminModuleDefinition[] = [
     key: 'products',
     title: 'Products',
     routeBase: '/admin/products',
+    capabilities: { list: true, create: true },
     fields: [
       { key: 'name', label: 'Name', required: true },
       { key: 'category', label: 'Category', required: true },
@@ -85,6 +98,7 @@ export const adminModules: AdminModuleDefinition[] = [
     key: 'orders',
     title: 'Orders',
     routeBase: '/admin/orders',
+    capabilities: { create: true },
     fields: [
       { key: 'buyerName', label: 'Buyer Name', required: true },
       { key: 'buyerEmail', label: 'Buyer Email', required: true, type: 'email' },
@@ -96,15 +110,19 @@ export const adminModules: AdminModuleDefinition[] = [
     key: 'settings',
     title: 'Settings',
     routeBase: '/admin/settings',
+    capabilities: { create: true },
     fields: [
-      { key: 'name', label: 'Setting Name', required: true },
-      { key: 'value', label: 'Value', required: true, type: 'textarea' }
+      { key: 'tenantId', label: 'Tenant ID', required: true },
+      { key: 'settingsJson', label: 'Settings JSON', type: 'textarea' },
+      { key: 'apiRequestLimitPerDay', label: 'API Request Limit / Day', type: 'number' },
+      { key: 'storageLimitMb', label: 'Storage Limit MB', type: 'number' }
     ]
   },
   {
     key: 'logs',
     title: 'Logs',
     routeBase: '/admin/logs',
+    capabilities: {},
     fields: [
       { key: 'level', label: 'Level', required: true },
       { key: 'message', label: 'Message', required: true, type: 'textarea' },
@@ -115,6 +133,7 @@ export const adminModules: AdminModuleDefinition[] = [
     key: 'notifications',
     title: 'Notifications',
     routeBase: '/admin/notifications',
+    capabilities: {},
     fields: [
       { key: 'title', label: 'Title', required: true },
       { key: 'message', label: 'Message', required: true, type: 'textarea' },
@@ -125,6 +144,7 @@ export const adminModules: AdminModuleDefinition[] = [
     key: 'audit-trail',
     title: 'Audit Trail',
     routeBase: '/admin/audit-trail',
+    capabilities: {},
     fields: [
       { key: 'action', label: 'Action', required: true },
       { key: 'entity', label: 'Entity', required: true },
@@ -135,6 +155,7 @@ export const adminModules: AdminModuleDefinition[] = [
     key: 'multi-tenant-selector',
     title: 'Multi-tenant Selector',
     routeBase: '/admin/multi-tenant-selector',
+    capabilities: {},
     fields: [
       { key: 'tenantId', label: 'Tenant ID', required: true },
       { key: 'tenantName', label: 'Tenant Name', required: true },
